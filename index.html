@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labirinto dos Números Perdidos</title>
+<meta name="description" content="Um jogo de puzzle matemático visual com 10 salas e um chefe final. Resolva padrões, simetrias e sequências para escapar do labirinto!">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#07070f;--bg2:#0d0d1a;--surface:rgba(20,20,40,0.85);
+--glass:rgba(255,255,255,0.04);--border:rgba(255,255,255,0.08);
+--cyan:#00e5ff;--purple:#a855f7;--gold:#fbbf24;--pink:#f472b6;
+--green:#34d399;--blue:#3b82f6;--orange:#f97316;--red:#ef4444;
+--text:#e2e8f0;--text2:#94a3b8;--font-title:'Orbitron',sans-serif;
+--font-body:'Inter',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body)}
+canvas#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.screen{position:fixed;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:10;padding:20px;transition:opacity .4s}
+.screen.active{display:flex}
+.screen.fade-in{animation:fadeIn .5s ease}
+.screen.fade-out{animation:fadeOut .4s ease forwards}
+@keyframes fadeIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+/* MENU */
+#menuScreen{background:radial-gradient(ellipse at center,rgba(0,229,255,.06) 0%,transparent 70%)}
+.menu-title{font-family:var(--font-title);font-size:clamp(1.6rem,5vw,3.2rem);font-weight:900;
+background:linear-gradient(135deg,var(--cyan),var(--purple),var(--gold));
+-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+text-align:center;margin-bottom:8px;animation:glow 3s ease-in-out infinite alternate}
+@keyframes glow{0%{filter:drop-shadow(0 0 8px rgba(0,229,255,.4))}100%{filter:drop-shadow(0 0 20px rgba(168,85,247,.5))}}
+.menu-subtitle{font-size:clamp(.85rem,2vw,1.1rem);color:var(--text2);margin-bottom:36px;text-align:center}
+.btn{font-family:var(--font-body);font-weight:600;font-size:1rem;padding:14px 40px;border:none;border-radius:12px;cursor:pointer;
+transition:all .25s ease;position:relative;overflow:hidden;outline:none}
+.btn::after{content:'';position:absolute;top:50%;left:50%;width:0;height:0;
+background:rgba(255,255,255,.15);border-radius:50%;transform:translate(-50%,-50%);transition:width .4s,height .4s}
+.btn:hover::after{width:300px;height:300px}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#000;font-weight:700;
+box-shadow:0 4px 24px rgba(0,229,255,.3)}
+.btn-primary:hover{box-shadow:0 6px 32px rgba(0,229,255,.5);transform:translateY(-2px)}
+.btn-secondary{background:var(--glass);color:var(--text);border:1px solid var(--border);
+backdrop-filter:blur(10px)}
+.btn-secondary:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15)}
+.btn-danger{background:linear-gradient(135deg,var(--red),var(--orange));color:#fff;
+box-shadow:0 4px 24px rgba(239,68,68,.3)}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--orange));color:#000;font-weight:700;
+box-shadow:0 4px 24px rgba(251,191,36,.3)}
+.menu-buttons{display:flex;flex-direction:column;gap:12px;align-items:center}
+.menu-record{margin-top:24px;padding:12px 24px;background:var(--glass);border:1px solid var(--border);
+border-radius:10px;backdrop-filter:blur(10px);text-align:center}
+.menu-record span{color:var(--gold);font-family:var(--font-title);font-weight:700;font-size:1.3rem}
+.how-to-play{margin-top:16px;max-width:420px;text-align:center;color:var(--text2);font-size:.85rem;line-height:1.6}
+/* GAME HUD */
+#gameScreen{background:transparent;padding:0}
+.hud{position:fixed;top:0;left:0;right:0;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;
+background:linear-gradient(180deg,rgba(7,7,15,.95) 0%,transparent 100%);z-index:20;gap:10px;flex-wrap:wrap}
+.hud-left,.hud-right{display:flex;align-items:center;gap:16px}
+.hud-center{flex:1;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.hud-room{font-family:var(--font-title);font-size:clamp(.7rem,1.8vw,.9rem);color:var(--cyan);letter-spacing:1px}
+.hud-timer-bar{width:100%;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+.hud-timer-fill{height:100%;border-radius:3px;transition:width .1s linear,background .3s;
+background:linear-gradient(90deg,var(--cyan),var(--blue))}
+.hud-timer-fill.warning{background:linear-gradient(90deg,var(--orange),var(--red));animation:pulse .5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.hud-lives{display:flex;gap:4px}
+.hud-heart{font-size:1.2rem;transition:transform .3s,opacity .3s}
+.hud-heart.lost{opacity:.2;transform:scale(.7)}
+.hud-heart.losing{animation:heartLose .5s ease}
+@keyframes heartLose{0%{transform:scale(1.3);opacity:1}100%{transform:scale(.7);opacity:.2}}
+.hud-score{font-family:var(--font-title);font-size:clamp(.8rem,2vw,1rem);color:var(--gold)}
+.hud-combo{font-family:var(--font-title);font-size:clamp(.7rem,1.5vw,.85rem);color:var(--purple);
+padding:4px 10px;background:rgba(168,85,247,.15);border-radius:6px;border:1px solid rgba(168,85,247,.3);
+transition:transform .2s}
+.hud-combo.pop{animation:comboPop .3s ease}
+@keyframes comboPop{0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+.hud-btn{background:none;border:1px solid var(--border);color:var(--text2);width:36px;height:36px;
+border-radius:8px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;
+transition:all .2s}
+.hud-btn:hover{background:rgba(255,255,255,.08);color:var(--text)}
+/* GAME AREA */
+.game-area{position:fixed;top:70px;left:0;right:0;bottom:0;display:flex;flex-direction:column;
+align-items:center;justify-content:center;padding:20px;overflow-y:auto;z-index:10}
+.room-intro{text-align:center;animation:fadeIn .6s ease}
+.room-intro h2{font-family:var(--font-title);font-size:clamp(1.2rem,3.5vw,2rem);margin-bottom:8px;
+background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;background-clip:text}
+.room-intro p{color:var(--text2);font-size:clamp(.85rem,2vw,1rem);margin-bottom:4px}
+.room-intro .room-desc{font-size:clamp(.75rem,1.5vw,.9rem);color:var(--text2);opacity:.7}
+.puzzle-container{display:flex;flex-direction:column;align-items:center;gap:20px;width:100%;max-width:700px;animation:fadeIn .5s ease}
+.puzzle-instruction{font-size:clamp(.9rem,2.2vw,1.15rem);color:var(--text);text-align:center;
+padding:12px 20px;background:var(--glass);border:1px solid var(--border);border-radius:10px;
+backdrop-filter:blur(10px)}
+/* SHAPES */
+.shape-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center}
+.shape-cell{width:clamp(45px,10vw,70px);height:clamp(45px,10vw,70px);display:flex;align-items:center;
+justify-content:center;border-radius:10px;transition:all .3s;position:relative}
+.shape-cell.question-mark{background:var(--glass);border:2px dashed var(--cyan);font-size:1.5rem;color:var(--cyan);
+font-family:var(--font-title);animation:pulseSlow 2s infinite}
+@keyframes pulseSlow{0%,100%{border-color:var(--cyan);box-shadow:0 0 10px rgba(0,229,255,.2)}
+50%{border-color:var(--purple);box-shadow:0 0 10px rgba(168,85,247,.2)}}
+.shape{width:70%;height:70%;transition:all .3s}
+.shape.circle{border-radius:50%}
+.shape.square{border-radius:4px}
+.shape.triangle{clip-path:polygon(50% 0%,0% 100%,100% 100%);border-radius:0}
+.shape.diamond{clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);border-radius:0}
+.shape.pentagon{clip-path:polygon(50% 0%,100% 38%,82% 100%,18% 100%,0% 38%);border-radius:0}
+.shape.hexagon{clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%);border-radius:0}
+.shape.star{clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);border-radius:0}
+.shape.cross{clip-path:polygon(33% 0%,67% 0%,67% 33%,100% 33%,100% 67%,67% 67%,67% 100%,33% 100%,33% 67%,0% 67%,0% 33%,33% 33%);border-radius:0}
+/* OPTIONS */
+.options-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.option-card{padding:12px;background:var(--glass);border:2px solid var(--border);border-radius:12px;
+cursor:pointer;transition:all .25s;display:flex;align-items:center;justify-content:center;
+min-width:clamp(55px,12vw,80px);min-height:clamp(55px,12vw,80px)}
+.option-card:hover{border-color:var(--cyan);background:rgba(0,229,255,.08);transform:translateY(-3px);
+box-shadow:0 6px 20px rgba(0,229,255,.15)}
+.option-card.selected{border-color:var(--cyan);background:rgba(0,229,255,.12);box-shadow:0 0 20px rgba(0,229,255,.2)}
+.option-card.correct{border-color:var(--green);background:rgba(52,211,153,.15);
+box-shadow:0 0 25px rgba(52,211,153,.3);animation:correctFlash .5s ease}
+.option-card.wrong{border-color:var(--red);background:rgba(239,68,68,.15);
+box-shadow:0 0 25px rgba(239,68,68,.3);animation:shake .4s ease}
+@keyframes correctFlash{0%{transform:scale(1)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.option-card .shape-cell{width:clamp(40px,9vw,60px);height:clamp(40px,9vw,60px)}
+/* NUMBER OPTIONS */
+.option-number{font-family:var(--font-title);font-size:clamp(1.2rem,3vw,1.8rem);color:var(--text);
+padding:16px 28px;min-width:70px;text-align:center}
+/* DOOR PUZZLE */
+.doors-row{display:flex;gap:20px;justify-content:center;flex-wrap:wrap}
+.door{width:clamp(90px,18vw,130px);height:clamp(140px,28vw,200px);background:linear-gradient(180deg,rgba(20,20,50,.9),rgba(10,10,30,.95));
+border:2px solid var(--border);border-radius:14px 14px 0 0;cursor:pointer;display:flex;flex-direction:column;
+align-items:center;justify-content:center;gap:10px;transition:all .3s;position:relative;overflow:hidden}
+.door::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:60%;height:4px;
+background:linear-gradient(90deg,transparent,var(--cyan),transparent);border-radius:0 0 4px 4px}
+.door:hover{border-color:var(--cyan);transform:translateY(-5px);box-shadow:0 8px 30px rgba(0,229,255,.2)}
+.door:hover::before{background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.door-number{font-family:var(--font-title);font-size:clamp(1.5rem,4vw,2.2rem);color:var(--text)}
+.door-label{font-size:.75rem;color:var(--text2);letter-spacing:2px;text-transform:uppercase}
+.door.correct{border-color:var(--green);box-shadow:0 0 30px rgba(52,211,153,.3)}
+.door.wrong{border-color:var(--red);box-shadow:0 0 30px rgba(239,68,68,.3);animation:shake .4s ease}
+/* GRID PUZZLE */
+.puzzle-grid{display:inline-grid;gap:6px;padding:12px;background:var(--glass);border:1px solid var(--border);border-radius:12px}
+.grid-cell{width:clamp(45px,10vw,65px);height:clamp(45px,10vw,65px);display:flex;align-items:center;justify-content:center;
+border-radius:8px;font-family:var(--font-title);font-size:clamp(.9rem,2.5vw,1.3rem);transition:all .3s}
+.grid-cell.filled{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--border)}
+.grid-cell.empty{background:rgba(0,229,255,.08);border:2px dashed var(--cyan);color:var(--cyan);cursor:default;
+animation:pulseSlow 2s infinite}
+/* SEQUENCE SELECT */
+.sequence-items{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.seq-item{width:clamp(50px,11vw,70px);height:clamp(50px,11vw,70px);display:flex;align-items:center;justify-content:center;
+background:var(--glass);border:2px solid var(--border);border-radius:10px;cursor:pointer;
+font-family:var(--font-title);font-size:clamp(.9rem,2.5vw,1.2rem);color:var(--text);transition:all .25s}
+.seq-item:hover{border-color:var(--cyan);background:rgba(0,229,255,.08)}
+.seq-item.selected-order{border-color:var(--green);background:rgba(52,211,153,.12);pointer-events:none}
+.seq-item .order-badge{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;
+background:var(--green);color:#000;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+/* MEMORY GRID */
+.memory-grid{display:inline-grid;gap:6px;padding:12px;background:var(--glass);border:1px solid var(--border);border-radius:12px}
+.memory-cell{width:clamp(45px,10vw,60px);height:clamp(45px,10vw,60px);border-radius:8px;transition:all .4s;cursor:pointer}
+.memory-cell.hidden{background:rgba(255,255,255,.06);border:1px solid var(--border)}
+.memory-cell.revealed{border:1px solid rgba(255,255,255,.15)}
+.memory-cell:hover{transform:scale(1.05)}
+/* BOSS */
+.boss-intro{text-align:center;animation:fadeIn .8s ease}
+.boss-intro h2{font-family:var(--font-title);font-size:clamp(1.5rem,4vw,2.5rem);
+background:linear-gradient(135deg,var(--red),var(--orange),var(--gold));
+-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+animation:glow 2s ease-in-out infinite alternate;margin-bottom:12px}
+.boss-intro p{color:var(--text2);font-size:clamp(.85rem,2vw,1rem)}
+.boss-phase{font-family:var(--font-title);font-size:clamp(.7rem,1.5vw,.85rem);color:var(--orange);
+margin-bottom:8px;letter-spacing:2px}
+/* PAUSE OVERLAY */
+#pauseOverlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(7,7,15,.92);
+backdrop-filter:blur(8px);z-index:30;display:none;flex-direction:column;align-items:center;
+justify-content:center;gap:16px}
+#pauseOverlay.active{display:flex}
+#pauseOverlay h2{font-family:var(--font-title);font-size:clamp(1.5rem,4vw,2.2rem);color:var(--cyan);margin-bottom:8px}
+/* ROOM TRANSITION */
+#roomTransition{position:fixed;top:0;left:0;width:100%;height:100%;z-index:25;display:none;
+align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#roomTransition.active{display:flex}
+.transition-bg{position:absolute;top:0;left:0;width:100%;height:100%;background:var(--bg);
+animation:transitionSlide .8s ease-in-out}
+@keyframes transitionSlide{0%{clip-path:circle(0% at 50% 50%)}50%{clip-path:circle(75% at 50% 50%)}
+100%{clip-path:circle(150% at 50% 50%)}}
+.transition-text{position:relative;z-index:1;font-family:var(--font-title);font-size:clamp(1.3rem,4vw,2rem);
+color:var(--cyan);animation:fadeIn .4s ease .3s both}
+.transition-sub{position:relative;z-index:1;font-size:.9rem;color:var(--text2);animation:fadeIn .4s ease .5s both}
+/* RESULT SCREENS */
+#victoryScreen{background:radial-gradient(ellipse at center,rgba(251,191,36,.06) 0%,transparent 70%)}
+#defeatScreen{background:radial-gradient(ellipse at center,rgba(239,68,68,.06) 0%,transparent 70%)}
+.result-icon{font-size:clamp(3rem,8vw,5rem);margin-bottom:16px;animation:bounceIn .6s ease}
+@keyframes bounceIn{0%{transform:scale(0);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+.result-title{font-family:var(--font-title);font-size:clamp(1.4rem,4vw,2.4rem);margin-bottom:8px}
+.victory-title{background:linear-gradient(135deg,var(--gold),var(--orange));-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;background-clip:text}
+.defeat-title{background:linear-gradient(135deg,var(--red),var(--pink));-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;background-clip:text}
+.result-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0;max-width:360px;width:100%}
+.stat-card{background:var(--glass);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;
+backdrop-filter:blur(10px)}
+.stat-label{font-size:.75rem;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
+.stat-value{font-family:var(--font-title);font-size:clamp(1rem,2.5vw,1.4rem);color:var(--gold)}
+.new-record{color:var(--gold);font-family:var(--font-title);font-size:clamp(.8rem,2vw,1rem);
+padding:8px 16px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px;
+animation:pulse 1s infinite;margin-bottom:12px}
+.result-buttons{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+/* FEEDBACK OVERLAY */
+.feedback-overlay{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:22;
+font-family:var(--font-title);font-size:clamp(1.5rem,5vw,2.5rem);pointer-events:none;
+animation:feedbackPop .7s ease forwards}
+.feedback-overlay.correct-fb{color:var(--green);text-shadow:0 0 30px rgba(52,211,153,.5)}
+.feedback-overlay.wrong-fb{color:var(--red);text-shadow:0 0 30px rgba(239,68,68,.5)}
+.feedback-overlay.combo-fb{color:var(--purple);text-shadow:0 0 30px rgba(168,85,247,.5);font-size:clamp(1rem,3vw,1.5rem)}
+@keyframes feedbackPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+20%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}
+40%{transform:translate(-50%,-50%) scale(1)}
+100%{opacity:0;transform:translate(-50%,-70%) scale(.8)}}
+/* RESPONSIVE */
+@media(max-width:600px){
+.hud{padding:8px 12px;gap:6px}
+.hud-left,.hud-right{gap:8px}
+.doors-row{gap:12px}
+.puzzle-container{gap:14px}
+.result-stats{grid-template-columns:1fr;max-width:200px}
+}
+@media(max-width:400px){
+.hud-combo{display:none}
+.shape-cell{width:40px;height:40px}
+.option-card{min-width:50px;min-height:50px;padding:8px}
+}
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+
+<!-- MENU SCREEN -->
+<div id="menuScreen" class="screen active">
+<div class="menu-title">LABIRINTO DOS<br>NÚMEROS PERDIDOS</div>
+<div class="menu-subtitle">Desvende os padrões. Escape do labirinto.</div>
+<div class="menu-buttons">
+<button id="btnPlay" class="btn btn-primary" onclick="startGame()">▶ JOGAR</button>
+<button id="btnHowTo" class="btn btn-secondary" onclick="toggleHowTo()">📖 COMO JOGAR</button>
+</div>
+<div class="menu-record">
+Recorde: <span id="menuRecord">0</span>
+</div>
+<div id="howToPlay" class="how-to-play" style="display:none">
+Atravesse <strong>10 salas</strong> resolvendo puzzles visuais de lógica e padrões.<br><br>
+🧠 Observe, deduza e escolha a resposta certa antes do tempo acabar.<br>
+❤️ Você tem <strong>3 vidas</strong>. Errou? Perde uma vida.<br>
+🔥 Acertos consecutivos aumentam seu <strong>combo</strong> e multiplicam pontos.<br>
+👑 Após as 10 salas, enfrente o <strong>Guardião do Labirinto</strong>!<br><br>
+<em>Boa sorte, explorador.</em>
+</div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen" class="screen">
+<div class="hud">
+<div class="hud-left">
+<div class="hud-lives" id="hudLives"></div>
+<div class="hud-score" id="hudScore">0</div>
+</div>
+<div class="hud-center">
+<div class="hud-room" id="hudRoom">SALA 1 / 10</div>
+<div class="hud-timer-bar"><div class="hud-timer-fill" id="hudTimer"></div></div>
+</div>
+<div class="hud-right">
+<div class="hud-combo" id="hudCombo" style="display:none">🔥 x1</div>
+<button class="hud-btn" id="btnPause" onclick="togglePause()" title="Pausar">⏸</button>
+<button class="hud-btn" id="btnRestart" onclick="confirmRestart()" title="Reiniciar">🔄</button>
+</div>
+</div>
+<div class="game-area" id="gameArea"></div>
+</div>
+
+<!-- PAUSE OVERLAY -->
+<div id="pauseOverlay">
+<h2>⏸ PAUSADO</h2>
+<button class="btn btn-primary" onclick="togglePause()">▶ CONTINUAR</button>
+<button class="btn btn-secondary" onclick="restartGame()">🔄 REINICIAR</button>
+<button class="btn btn-secondary" onclick="goToMenu()">🏠 MENU</button>
+</div>
+
+<!-- ROOM TRANSITION -->
+<div id="roomTransition">
+<div class="transition-bg"></div>
+<div class="transition-text" id="transText"></div>
+<div class="transition-sub" id="transSub"></div>
+</div>
+
+<!-- VICTORY SCREEN -->
+<div id="victoryScreen" class="screen">
+<div class="result-icon">🏆</div>
+<div class="result-title victory-title">LABIRINTO CONQUISTADO!</div>
+<p style="color:var(--text2);margin-bottom:8px">Você escapou do labirinto!</p>
+<div id="newRecordBadge" class="new-record" style="display:none">⭐ NOVO RECORDE! ⭐</div>
+<div class="result-stats" id="victoryStats"></div>
+<div class="result-buttons">
+<button class="btn btn-gold" onclick="restartGame()">🔄 JOGAR NOVAMENTE</button>
+<button class="btn btn-secondary" onclick="goToMenu()">🏠 MENU</button>
+</div>
+</div>
+
+<!-- DEFEAT SCREEN -->
+<div id="defeatScreen" class="screen">
+<div class="result-icon">💀</div>
+<div class="result-title defeat-title">DERROTADO...</div>
+<p style="color:var(--text2);margin-bottom:8px">O labirinto venceu desta vez.</p>
+<div class="result-stats" id="defeatStats"></div>
+<div class="result-buttons">
+<button class="btn btn-danger" onclick="restartGame()">🔄 TENTAR NOVAMENTE</button>
+<button class="btn btn-secondary" onclick="goToMenu()">🏠 MENU</button>
+</div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONSTANTS & CONFIG
+// ─────────────────────────────────────────────
+const SHAPES = ['circle','square','triangle','diamond','pentagon','hexagon','star','cross'];
+const COLORS = ['#00e5ff','#a855f7','#fbbf24','#f472b6','#34d399','#3b82f6','#f97316','#ef4444'];
+const COLOR_NAMES = {'#00e5ff':'Ciano','#a855f7':'Roxo','#fbbf24':'Dourado','#f472b6':'Rosa','#34d399':'Verde','#3b82f6':'Azul','#f97316':'Laranja','#ef4444':'Vermelho'};
+const TOTAL_ROOMS = 10;
+
+const ROOM_CONFIG = [
+  {name:'Padrão Simples',desc:'Descubra o próximo elemento da sequência.',time:30,points:100},
+  {name:'A Porta Certa',desc:'Qual porta continua a sequência?',time:28,points:150},
+  {name:'Reflexo Perfeito',desc:'Encontre o espelho correto.',time:26,points:200},
+  {name:'Ordem Lógica',desc:'Clique nos itens na ordem correta.',time:25,points:250},
+  {name:'O Intruso',desc:'Encontre o elemento que não pertence ao grupo.',time:22,points:300},
+  {name:'Grade Lógica',desc:'Complete a grade seguindo o padrão.',time:24,points:350},
+  {name:'Equação de Formas',desc:'Descubra o valor oculto.',time:22,points:400},
+  {name:'Caminho Secreto',desc:'Siga a regra pelo caminho.',time:28,points:450},
+  {name:'Memória Relâmpago',desc:'Memorize e reproduza.',time:20,points:500},
+  {name:'Desafio Triplo',desc:'Três puzzles rápidos em sequência!',time:35,points:600},
+];
+const BOSS_CONFIG = {name:'O Guardião',desc:'Uma tentativa. Todas as mecânicas. Boa sorte.',time:70,points:1500};
+
+// ─────────────────────────────────────────────
+// SOUND MANAGER (Web Audio API)
+// ─────────────────────────────────────────────
+const SFX = {
+  ctx: null,
+  init() {
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  },
+  play(type) {
+    if (!this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      switch(type) {
+        case 'click': this._tone(800,.06,.08,'square'); break;
+        case 'correct': this._chord([523,659,784],.15,.2,'sine'); break;
+        case 'wrong': this._tone(180,.2,.25,'sawtooth'); break;
+        case 'combo': this._chord([659,880,1047],.1,.15,'sine'); break;
+        case 'roomComplete': this._fanfare(); break;
+        case 'tick': this._tone(1200,.03,.04,'sine'); break;
+        case 'warning': this._tone(440,.1,.12,'square'); break;
+        case 'victory': this._victoryFanfare(); break;
+        case 'defeat': this._defeatSound(); break;
+        case 'boss': this._tone(120,.3,.5,'sawtooth'); break;
+        case 'bossPhase': this._chord([330,415,523],.15,.2,'triangle'); break;
+      }
+    } catch(e) {}
+  },
+  _tone(freq, dur, vol, type) {
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, this.ctx.currentTime + dur);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(); o.stop(this.ctx.currentTime + dur);
+  },
+  _chord(freqs, dur, vol, type) {
+    freqs.forEach((f,i) => {
+      setTimeout(() => this._tone(f, dur, vol * .7, type), i * 80);
+    });
+  },
+  _fanfare() {
+    [523,659,784,1047].forEach((f,i) => {
+      setTimeout(() => this._tone(f, .15, .12, 'sine'), i * 100);
+    });
+  },
+  _victoryFanfare() {
+    [523,587,659,784,880,1047].forEach((f,i) => {
+      setTimeout(() => this._tone(f, .2, .1, 'sine'), i * 120);
+    });
+  },
+  _defeatSound() {
+    [392,349,330,262].forEach((f,i) => {
+      setTimeout(() => this._tone(f, .25, .12, 'sawtooth'), i * 150);
+    });
+  }
+};
+
+// ─────────────────────────────────────────────
+// PARTICLE SYSTEM
+// ─────────────────────────────────────────────
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+  bgCanvas.width = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function createParticle(x, y, color, speed, size) {
+  return { x: x ?? Math.random() * bgCanvas.width, y: y ?? Math.random() * bgCanvas.height,
+    vx: (Math.random() - .5) * (speed || .3), vy: (Math.random() - .5) * (speed || .3),
+    size: size || Math.random() * 2 + .5, color: color || COLORS[Math.floor(Math.random()*COLORS.length)],
+    alpha: Math.random() * .4 + .1, life: 1, decay: 0 };
+}
+
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < 60; i++) particles.push(createParticle());
+}
+
+function burstParticles(x, y, color, count = 20) {
+  for (let i = 0; i < count; i++) {
+    const p = createParticle(x, y, color, 3, Math.random() * 3 + 1);
+    p.decay = .02 + Math.random() * .02;
+    particles.push(p);
+  }
+}
+
+function animateParticles() {
+  bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if (p.decay) { p.life -= p.decay; p.vx *= .98; p.vy *= .98; }
+    else {
+      if (p.x < 0 || p.x > bgCanvas.width) p.vx *= -1;
+      if (p.y < 0 || p.y > bgCanvas.height) p.vy *= -1;
+    }
+    bgCtx.beginPath();
+    bgCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    bgCtx.fillStyle = p.color;
+    bgCtx.globalAlpha = p.alpha * p.life;
+    bgCtx.fill();
+  });
+  bgCtx.globalAlpha = 1;
+  requestAnimationFrame(animateParticles);
+}
+initParticles();
+animateParticles();
+
+// ─────────────────────────────────────────────
+// GAME STATE
+// ─────────────────────────────────────────────
+let G = {};
+function resetState() {
+  G = {
+    screen: 'menu', currentRoom: 0, lives: 3, maxLives: 3,
+    score: 0, combo: 0, maxCombo: 0, timeLeft: 0, totalTime: 0,
+    isPaused: false, isBoss: false, bossPhase: 0, bossTotalPhases: 4,
+    startTime: null, correctRooms: 0, wrongAnswers: 0,
+    puzzleActive: false, answered: false, timerInterval: null,
+    tripleSub: 0,
+    highScore: parseInt(localStorage.getItem('labyrinth_hs') || '0')
+  };
+}
+resetState();
+
+// ─────────────────────────────────────────────
+// UTILITY
+// ─────────────────────────────────────────────
+function shuffle(arr) { const a = [...arr]; for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function pick(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+function pickN(arr, n) { return shuffle(arr).slice(0, n); }
+function uniqueShapes(n) { return pickN(SHAPES, n); }
+function uniqueColors(n) { return pickN(COLORS, n); }
+function el(id) { return document.getElementById(id); }
+function qs(sel, parent) { return (parent || document).querySelector(sel); }
+
+// ─────────────────────────────────────────────
+// SCREEN MANAGEMENT
+// ─────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active','fade-in'));
+  const screen = el(id);
+  screen.classList.add('active','fade-in');
+  G.screen = id;
+}
+
+function goToMenu() {
+  clearTimer();
+  el('pauseOverlay').classList.remove('active');
+  showScreen('menuScreen');
+  el('menuRecord').textContent = G.highScore;
+}
+
+function toggleHowTo() {
+  const hw = el('howToPlay');
+  hw.style.display = hw.style.display === 'none' ? 'block' : 'none';
+}
+
+// ─────────────────────────────────────────────
+// HUD
+// ─────────────────────────────────────────────
+function updateHUD() {
+  // Lives
+  let hearts = '';
+  for (let i = 0; i < G.maxLives; i++) {
+    hearts += `<span class="hud-heart ${i >= G.lives ? 'lost' : ''}">❤️</span>`;
+  }
+  el('hudLives').innerHTML = hearts;
+  // Score
+  el('hudScore').textContent = G.score;
+  // Room
+  if (G.isBoss) {
+    el('hudRoom').textContent = `👑 GUARDIÃO — FASE ${G.bossPhase + 1}/${G.bossTotalPhases}`;
+    el('hudRoom').style.color = '#f97316';
+  } else {
+    el('hudRoom').textContent = `SALA ${G.currentRoom} / ${TOTAL_ROOMS}`;
+    el('hudRoom').style.color = '';
+  }
+  // Combo
+  const comboEl = el('hudCombo');
+  if (G.combo >= 2) {
+    comboEl.style.display = '';
+    comboEl.textContent = `🔥 x${G.combo}`;
+    comboEl.classList.remove('pop');
+    void comboEl.offsetWidth;
+    comboEl.classList.add('pop');
+  } else {
+    comboEl.style.display = 'none';
+  }
+}
+
+function updateTimerBar() {
+  const fill = el('hudTimer');
+  const pct = Math.max(0, G.timeLeft / G.totalTime * 100);
+  fill.style.width = pct + '%';
+  fill.classList.toggle('warning', pct < 25);
+}
+
+// ─────────────────────────────────────────────
+// TIMER
+// ─────────────────────────────────────────────
+function startTimer(seconds) {
+  clearTimer();
+  G.totalTime = seconds;
+  G.timeLeft = seconds;
+  updateTimerBar();
+  G.timerInterval = setInterval(() => {
+    if (G.isPaused || !G.puzzleActive) return;
+    G.timeLeft -= .1;
+    updateTimerBar();
+    if (G.timeLeft <= 5 && G.timeLeft > 0 && Math.floor(G.timeLeft * 10) % 10 === 0) SFX.play('warning');
+    if (G.timeLeft <= 0) {
+      G.timeLeft = 0;
+      updateTimerBar();
+      clearTimer();
+      onTimeUp();
+    }
+  }, 100);
+}
+
+function clearTimer() {
+  if (G.timerInterval) { clearInterval(G.timerInterval); G.timerInterval = null; }
+}
+
+function onTimeUp() {
+  if (G.answered) return;
+  G.answered = true;
+  G.puzzleActive = false;
+  if (G.isBoss) {
+    showFeedback('⏰ Tempo Esgotado!', 'wrong');
+    SFX.play('wrong');
+    setTimeout(() => defeat(), 1200);
+  } else {
+    loseLife();
+    showFeedback('⏰ Tempo!', 'wrong');
+    SFX.play('wrong');
+    setTimeout(() => nextRoom(), 1500);
+  }
+}
+
+// ─────────────────────────────────────────────
+// PAUSE
+// ─────────────────────────────────────────────
+function togglePause() {
+  G.isPaused = !G.isPaused;
+  el('pauseOverlay').classList.toggle('active', G.isPaused);
+  SFX.play('click');
+}
+
+function confirmRestart() {
+  if (confirm('Reiniciar o jogo?')) restartGame();
+}
+
+function restartGame() {
+  clearTimer();
+  el('pauseOverlay').classList.remove('active');
+  startGame();
+}
+
+// ─────────────────────────────────────────────
+// SCORING & LIVES
+// ─────────────────────────────────────────────
+function addScore(base) {
+  const multiplier = Math.max(1, G.combo);
+  const timeBonus = Math.floor(G.timeLeft / G.totalTime * 50);
+  const total = Math.floor(base * multiplier) + timeBonus;
+  G.score += total;
+  G.combo++;
+  if (G.combo > G.maxCombo) G.maxCombo = G.combo;
+  updateHUD();
+  if (G.combo >= 3) {
+    SFX.play('combo');
+    showFeedback(`🔥 COMBO x${G.combo}!`, 'combo');
+  }
+}
+
+function loseLife() {
+  G.lives--;
+  G.combo = 0;
+  G.wrongAnswers++;
+  updateHUD();
+  // Animate heart loss
+  const hearts = el('hudLives').querySelectorAll('.hud-heart');
+  if (hearts[G.lives]) hearts[G.lives].classList.add('losing');
+  if (G.lives <= 0) {
+    setTimeout(() => defeat(), 800);
+  }
+}
+
+// ─────────────────────────────────────────────
+// FEEDBACK
+// ─────────────────────────────────────────────
+function showFeedback(text, type) {
+  const div = document.createElement('div');
+  div.className = `feedback-overlay ${type === 'correct' ? 'correct-fb' : type === 'combo' ? 'combo-fb' : 'wrong-fb'}`;
+  div.textContent = text;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 800);
+}
+
+// ─────────────────────────────────────────────
+// SHAPE RENDERING HELPERS
+// ─────────────────────────────────────────────
+function renderShape(shape, color, size) {
+  return `<div class="shape ${shape}" style="background:${color};width:${size||'70%'};height:${size||'70%'}"></div>`;
+}
+
+function renderShapeCell(shape, color, cellSize) {
+  return `<div class="shape-cell" style="width:${cellSize||''};height:${cellSize||''}">${renderShape(shape, color)}</div>`;
+}
+
+// ─────────────────────────────────────────────
+// GAME FLOW
+// ─────────────────────────────────────────────
+function startGame() {
+  SFX.init();
+  SFX.play('click');
+  resetState();
+  G.startTime = Date.now();
+  G.currentRoom = 1;
+  showScreen('gameScreen');
+  updateHUD();
+  showRoomIntro();
+}
+
+function showRoomIntro() {
+  const area = el('gameArea');
+  const cfg = G.isBoss ? BOSS_CONFIG : ROOM_CONFIG[G.currentRoom - 1];
+  if (G.isBoss) {
+    SFX.play('boss');
+    area.innerHTML = `
+      <div class="boss-intro">
+        <h2>👑 ${cfg.name}</h2>
+        <p>${cfg.desc}</p>
+        <p style="color:var(--orange);margin-top:8px;font-size:.85rem">⚠️ Apenas UMA tentativa!</p>
+        <button class="btn btn-danger" style="margin-top:24px" onclick="startPuzzle()">ENFRENTAR</button>
+      </div>`;
+  } else {
+    area.innerHTML = `
+      <div class="room-intro">
+        <h2>Sala ${G.currentRoom}: ${cfg.name}</h2>
+        <p>${cfg.desc}</p>
+        <p class="room-desc">+${cfg.points} pontos base · ${cfg.time}s</p>
+        <button class="btn btn-primary" style="margin-top:20px" onclick="startPuzzle()">COMEÇAR</button>
+      </div>`;
+  }
+  updateHUD();
+}
+
+function startPuzzle() {
+  SFX.play('click');
+  G.puzzleActive = true;
+  G.answered = false;
+  const cfg = G.isBoss ? BOSS_CONFIG : ROOM_CONFIG[G.currentRoom - 1];
+  startTimer(cfg.time);
+  if (G.isBoss) {
+    G.bossPhase = 0;
+    renderBossPhase();
+  } else {
+    renderPuzzle(G.currentRoom);
+  }
+}
+
+function onCorrectAnswer() {
+  if (G.answered) return;
+  G.answered = true;
+  G.puzzleActive = false;
+  clearTimer();
+  const cfg = G.isBoss ? BOSS_CONFIG : ROOM_CONFIG[G.currentRoom - 1];
+  SFX.play('correct');
+  showFeedback('✓ Correto!', 'correct');
+  burstParticles(window.innerWidth/2, window.innerHeight/2, '#34d399', 30);
+  addScore(cfg.points);
+  G.correctRooms++;
+  
+  if (G.isBoss) {
+    G.bossPhase++;
+    if (G.bossPhase >= G.bossTotalPhases) {
+      SFX.play('roomComplete');
+      setTimeout(() => victory(), 1200);
+    } else {
+      SFX.play('bossPhase');
+      updateHUD();
+      setTimeout(() => {
+        G.answered = false;
+        G.puzzleActive = true;
+        startTimer(Math.max(12, BOSS_CONFIG.time - G.bossPhase * 12));
+        renderBossPhase();
+      }, 1000);
+    }
+  } else {
+    setTimeout(() => nextRoom(), 1200);
+  }
+}
+
+function onWrongAnswer() {
+  if (G.answered) return;
+  G.answered = true;
+  G.puzzleActive = false;
+  clearTimer();
+  SFX.play('wrong');
+  showFeedback('✗ Errado!', 'wrong');
+  burstParticles(window.innerWidth/2, window.innerHeight/2, '#ef4444', 15);
+  
+  if (G.isBoss) {
+    setTimeout(() => defeat(), 1200);
+  } else {
+    loseLife();
+    if (G.lives > 0) {
+      setTimeout(() => nextRoom(), 1500);
+    }
+  }
+}
+
+function nextRoom() {
+  if (G.lives <= 0) return;
+  G.currentRoom++;
+  if (G.currentRoom > TOTAL_ROOMS) {
+    // Boss time
+    G.isBoss = true;
+    showRoomTransition('👑 O GUARDIÃO', 'O desafio final te aguarda...', () => showRoomIntro());
+  } else {
+    const cfg = ROOM_CONFIG[G.currentRoom - 1];
+    showRoomTransition(`SALA ${G.currentRoom}`, cfg.name, () => showRoomIntro());
+  }
+}
+
+function showRoomTransition(title, sub, callback) {
+  SFX.play('roomComplete');
+  const t = el('roomTransition');
+  el('transText').textContent = title;
+  el('transSub').textContent = sub;
+  t.classList.add('active');
+  // Re-trigger animation
+  const bg = t.querySelector('.transition-bg');
+  bg.style.animation = 'none';
+  void bg.offsetWidth;
+  bg.style.animation = '';
+  setTimeout(() => {
+    t.classList.remove('active');
+    callback();
+  }, 1500);
+}
+
+function victory() {
+  clearTimer();
+  SFX.play('victory');
+  const elapsed = Math.floor((Date.now() - G.startTime) / 1000);
+  const isNewRecord = G.score > G.highScore;
+  if (isNewRecord) {
+    G.highScore = G.score;
+    localStorage.setItem('labyrinth_hs', G.score);
+  }
+  el('newRecordBadge').style.display = isNewRecord ? '' : 'none';
+  el('victoryStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Pontuação</div><div class="stat-value">${G.score}</div></div>
+    <div class="stat-card"><div class="stat-label">Maior Combo</div><div class="stat-value">x${G.maxCombo}</div></div>
+    <div class="stat-card"><div class="stat-label">Tempo Total</div><div class="stat-value">${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}</div></div>
+    <div class="stat-card"><div class="stat-label">Erros</div><div class="stat-value">${G.wrongAnswers}</div></div>
+    <div class="stat-card"><div class="stat-label">Vidas Rest.</div><div class="stat-value">${G.lives}/${G.maxLives}</div></div>
+    <div class="stat-card"><div class="stat-label">Recorde</div><div class="stat-value">${G.highScore}</div></div>`;
+  burstParticles(window.innerWidth/2, window.innerHeight/3, '#fbbf24', 50);
+  showScreen('victoryScreen');
+}
+
+function defeat() {
+  clearTimer();
+  SFX.play('defeat');
+  const elapsed = Math.floor((Date.now() - G.startTime) / 1000);
+  el('defeatStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Pontuação</div><div class="stat-value">${G.score}</div></div>
+    <div class="stat-card"><div class="stat-label">Sala Alcançada</div><div class="stat-value">${G.isBoss ? 'Guardião' : G.currentRoom + '/' + TOTAL_ROOMS}</div></div>
+    <div class="stat-card"><div class="stat-label">Maior Combo</div><div class="stat-value">x${G.maxCombo}</div></div>
+    <div class="stat-card"><div class="stat-label">Tempo</div><div class="stat-value">${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}</div></div>`;
+  if (G.score > G.highScore) {
+    G.highScore = G.score;
+    localStorage.setItem('labyrinth_hs', G.score);
+  }
+  showScreen('defeatScreen');
+}
+
+// ─────────────────────────────────────────────
+// PUZZLE RENDERERS
+// ─────────────────────────────────────────────
+
+function renderPuzzle(roomNum) {
+  const generators = [
+    null, genRoom1, genRoom2, genRoom3, genRoom4, genRoom5,
+    genRoom6, genRoom7, genRoom8, genRoom9, genRoom10
+  ];
+  generators[roomNum]();
+}
+
+// ── ROOM 1: Pattern Sequence ──
+function genRoom1() {
+  const area = el('gameArea');
+  const patShapes = pickN(SHAPES, 2);
+  const patColors = pickN(COLORS, 2);
+  const pattern = [];
+  for (let i = 0; i < 2; i++) pattern.push({shape: patShapes[i], color: patColors[i]});
+  
+  const sequence = [];
+  for (let i = 0; i < 5; i++) sequence.push(pattern[i % 2]);
+  const correct = pattern[5 % 2]; // = pattern[1]
+  
+  // Generate wrong options
+  let options = [{...correct, idx: 0}];
+  let attempts = 0;
+  while (options.length < 4 && attempts < 50) {
+    const wrong = {shape: pick(SHAPES), color: pick(COLORS), idx: options.length};
+    if (!options.some(o => o.shape === wrong.shape && o.color === wrong.color)) options.push(wrong);
+    attempts++;
+  }
+  options = shuffle(options);
+  const correctIdx = options.findIndex(o => o.shape === correct.shape && o.color === correct.color);
+  
+  area.innerHTML = `
+    <div class="puzzle-container">
+      <div class="puzzle-instruction">Qual forma completa o padrão?</div>
+      <div class="shape-row">
+        ${sequence.map(s => renderShapeCell(s.shape, s.color)).join('')}
+        <div class="shape-cell question-mark">?</div>
+      </div>
+      <div class="options-row">
+        ${options.map((o, i) => `
+          <div class="option-card" data-idx="${i}" onclick="checkOption(this, ${i}, ${correctIdx})">
+            <div class="shape-cell">${renderShape(o.shape, o.color)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ── ROOM 2: Door Selection ──
+function genRoom2() {
+  const area = el('gameArea');
+  // Generate arithmetic sequence
+  const start = Math.floor(Math.random() * 5) + 1;
+  const step = pick([2, 3, 4, 5]);
+  const seq = [start, start + step, start + step * 2];
+  const answer = start + step * 3;
+  
+  // Generate wrong door values
+  let doorValues = [answer];
+  while (doorValues.length < 3) {
+    const wrong = answer + pick([-3, -2, -1, 1, 2, 3]);
+    if (!doorValues.includes(wrong) && wrong > 0) doorValues.push(wrong);
+  }
+  doorValues = shuffle(doorValues);
+  const correctDoor = doorValues.indexOf(answer);
+  const labels = ['A', 'B', 'C'];
+  
+  area.innerHTML = `
+    <div class="puzzle-container">
+      <div class="puzzle-instruction">Sequência: ${seq.join(' → ')} → <strong>?</strong></div>
+      <div class="doors-row">
+        ${doorValues.map((v, i) => `
+          <div class="door" data-idx="${i}" onclick="checkDoor(this, ${i}, ${correctDoor})">
+            <div class="door-label">PORTA ${labels[i]}</div>
+            <div class="door-number">${v}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ── ROOM 3: Symmetry / Mirror ──
+function genRoom3() {
+  const area = el('gameArea');
+  // 3x3 grid of colored cells - find the correct horizontal mirror
+  const gridColors = [];
+  const palette = pickN(COLORS, 3);
+  for (let r = 0; r < 3; r++) {
+    const row = [];
+    for (let c = 0; c < 3; c++) row.push(pick(palette));
+    gridColors.push(row);
+  }
+  
+  // Correct mirror: flip horizontally (reverse each row)
+  const mirror = gridColors.map(row => [...row].reverse());
+  
+  // Wrong mirrors: various distortions
+  function makeWrong() {
+    const m = gridColors.map(row => [...row]);
+    // Randomly change 1-2 cells
+    const changes = 1 + Math.floor(Math.random() * 2);
+    for (let c = 0; c < changes; c++) {
+      const r = Math.floor(Math.random() * 3);
+      const col = Math.floor(Math.random() * 3);
+      let newColor;
+      do { newColor = pick(palette); } while (newColor === m[r][col]);
+      m[r][col] = newColor;
+    }
+    // Also reverse (so it looks mirror-like but wrong)
+    return m.map(row => [...row].reverse());
+  }
+  
+  let options = [mirror];
+  let att = 0;
+  while (options.length < 4 && att < 50) {
+    const w = makeWrong();
+    const wStr = JSON.stringify(w);
+    if (!options.some(o => JSON.stringify(o) === wStr)) options.push(w);
+    att++;
+  }
+  options = shuffle(options);
+  const correctIdx = options.findIndex(o => JSON.stringify(o) === JSON.stringify(mirror));
+  
+  function renderMiniGrid(grid, size) {
+    return `<div class="puzzle-grid" style="grid-template-columns:repeat(3,1fr)">
+      ${grid.flat().map(c => `<div class="grid-cell filled" style="background:${c};width:${size};height:${size}"></div>`).join('')}
+    </div>`;
+  }
+  
+  area.innerHTML = `
+    <div class="puzzle-container">
+      <div class="puzzle-instruction">Qual é o reflexo horizontal correto?</div>
+      <div style="text-align:center;margin-bottom:8px">
+        <div style="font-size:.75rem;color:var(--text2);margin-bottom:6px">ORIGINAL</div>
+        ${renderMiniGrid(gridColors, 'clamp(35px,8vw,50px)')}
+      </div>
+      <div style="font-size:.75rem;color:var(--text2)">↕ ESPELHO ↕</div>
+      <div class="options-row">
+        ${options.map((o, i) => `
+          <div class="option-card" style="padding:8px" data-idx="${i}" onclick="checkOption(this, ${i}, ${correctIdx})">
+            ${renderMiniGrid(o, 'clamp(22px,5vw,32px)')}
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ── ROOM 4: Logical Order ──
+function genRoom4() {
+  const area = el('gameArea');
+  // Order shapes by number of sides
+  const shapeOrder = [
+    {shape:'triangle',label:'3 lados',sides:3},
+    {shape:'square',label:'4 lados',sides:4},
+    {shape:'pentagon',label:'5 lados',sides:5},
+    {shape:'hexagon',label:'6 lados',sides:6}
+  ];
+  const color = pick(COLORS);
+  const shuffled = shuffle(shapeOrder);
+  let selectedOrder = [];
+  
+  area.innerHTML = `
+    <div class="puzzle-container">
+      <div class="puzzle-instruction">Clique nas formas em ordem crescente de lados</div>
+      <div class="shape-row" id="orderDisplay" style="min-height:60px;padding:8px;background:var(--glass);border:1px solid var(--border);border-radius:10px">
+        <span style="color:var(--text2);font-size:.85rem">Sua ordem aparecerá aqui...</span>
+      </div>
+      <div class="sequence-items" id="orderItems">
+        ${shuffled.map((s, i) => `
+          <div class="seq-item" data-idx="${i}" data-sides="${s.sides}" onclick="selectOrder(this)" style="position:relative">
+            <div class="shape-cell" style="width:40px;height:40px">${renderShape(s.shape, color)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  
+  window._orderState = { selected: [], total: 4, correct: [3,4,5,6] };
+}
+
+window.selectOrder = function(elem) {
+  if (G.answered || !G.puzzleActive) return;
+  SFX.play('click');
+  const sides = parseInt(elem.dataset.sides);
+  const state = window._orderState;
+  
+  state.selected.push(sides);
+  elem.classList.add('selected-order');
+  elem.style.pointerEvents = 'none';
+  
+  // Update display
+  const display = el('orderDisplay');
+  display.innerHTML = state.selected.map((s, i) => 
+    `<div class="shape-cell" style="width:40px;height:40px;background:rgba(52,211,153,.1);border:1px solid var(--green);border-radius:8px">
+      <span style="font-family:var(--font-title);font-size:.8rem;color:var(--green)">${s}</span>
+    </div>`
+  ).join('');
+  
+  if (state.selected.length === state.total) {
+    const isCorrect = JSON.stringify(state.selected) === JSON.stringify(state.correct);
+    if (isCorrect) onCorrectAnswer();
+    else onWrongAnswer();
+  }
+};
+
+// ── ROOM 5: Odd One Out ──
+function genRoom5() {
+  const area = el('gameArea');
+  // All same color except one, OR all same shape except one
+  const mode = Math.random() > 0.5 ? 'color' : 'shape';
+  
+  let items, intruderIdx;
+  if (mode === 'color') {
+    const mainColor = pick(COLORS);
+    let oddColor;
+    do { oddColor = pick(COLORS); } while (oddColor === mainColor);
+    const shapes = pickN(SHAPES, 6);
+    intruderIdx = Math.floor(Math.random() * 6);
+    items = shapes.map((s, i) => ({shape: s, color: i === intruderIdx ? oddColor : mainColor}));
+  } else {
+    const mainShape = pick(SHAPES);
+    let oddShape;
+    do { oddShape = pick(SHAPES); } while (oddShape === mainShape);
+    const colors = pickN(COLORS, 6);
+    intruderIdx = Math.floor(Math.random() * 6);
+    items = colors.map((c, i) => ({shape: i === intruderIdx ? oddShape : mainShape, color: c}));
+  }
+  
+  area.innerHTML = `
+    <div class="puzzle-container">
+      <div class="puzzle-instruction">Encontre o intruso! Qual não pertence ao grupo?</div>
+      <div class="options-row" style="max-width:400px">
+        ${items.map((item, i) => `
+          <div class="option-card" data-idx="${i}" onclick="checkOption(this, ${i}, ${intruderIdx})">
+            <div class="shape-cell">${renderShape(item.shape, item.color)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ── ROOM 6: Grid Logic ──
+function genRoom6() {
+  const area = el('gameArea');
+  // 3x3 grid: each row uses 3 different shapes and 3 different colors
+  // Like a mini Latin square
+  const shapes3 = pickN(SHAPES, 3);
+  const colors3 = pickN(COLORS, 3);
+  
+  // Create Latin square for shapes
+  const sGrid = [
+    [shapes3[0], shapes3[1], shapes3[2]],
+    [shapes3[1], shapes3[2], shapes3[0]],
+    [shapes3[2], shapes3[0], shapes3[1]]
+  ];
+  // Create Latin square for colors
+  const cGrid = [
+    [colors3[0], colors3[1], colors3[2]],
+    [colors3[2], colors3[0], colors3[1]],
+    [colors3[1], colors3[2], colors3[0]]
+  ];
+  
+  // Remove one cell
+  const emptyR = Math.floor(Math.random() * 3);
+  const emptyC = Math.floor(Math.random() * 3);
+  const correctShape = sGrid[emptyR][emptyC];
+  const correctColor = cGrid[emptyR][emptyC];
+  
+  // Options
+  let options = [{shape: correctShape, color: correctColor}];
+  let att = 0;
+  while (options.length < 4 && att < 50) {
+    const ws = pick(shapes3);
+    const wc = pick(colors3);
+    if (!options.some(o => o.shape === ws && o.color === wc)) {
+      options.push({shape: ws, color: wc});
+    }
+    att++;
+  }
+  options = shuffle(options);
+  const correctIdx = options.findIndex(o => o.shape === correctShape && o.color === correctColor);
+  
+  area.innerHTML = `
+    <div class="puzzle-container">
+      <div class="puzzle-instruction">Qual forma completa a grade?<br><small style="color:var(--text2)">Cada linha e coluna tem formas e cores únicas</small></div>
+      <div class="puzzle-grid" style="grid-template-columns:repeat(3,1fr)">
+        ${sGrid.flatMap((row, r) => row.map((s, c) => {
+          if (r === emptyR && c === emptyC) {
+            return `<div class="grid-cell empty">?</div>`;
+          }
+          return `<div class="grid-cell filled">${renderShape(s, cGrid[r][c], '65%')}</div>`;
+        })).join('')}
+      </div>
+      <div class="options-row">
+        ${options.map((o, i) => `
+          <div class="option-card" data-idx="${i}" onclick="checkOption(this, ${i}, ${correctIdx})">
+            <div class="shape-cell">${renderShape(o.shape, o.color)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ── ROOM 7: Visual Equation ──
+function genRoom7() {
+  const area = el('gameArea');
+  const shapes2 = pickN(SHAPES, 3);
+  const colors2 = pickN(COLORS, 3);
+  
+  // Assign values
+  const valA = Math.floor(Math.random() * 5) + 1; // 1-5
+  const valB = Math.floor(Math.random() * 5) + 1;
+  const valC = Math.floor(Math.random() * 5) + 1;
+  
+  // Equations: A + B = ?, A + C = ?, B + C = ?
+  const eq1 = valA + valB;
+  const eq2 = valA + valC;
+  const answer = valB + valC;
+  
+  // Options
+  let opts = [answer];
+  while (opts.length < 4) {
+    const wrong = answer + pick([-3,-2,-1,1,2,3]);
+    if (!opts.includes(wrong) && wrong > 0) opts.push(wrong);
+  }
+  opts = shuffle(opts);
+  const correctIdx = opts.indexOf(answer);
+  
+  function shapeIcon(idx) {
+    return `<span style="display:inline-block;width:28px;height:28px;vertical-align:middle">${renderShape(shapes2[idx], colors2[idx], '100%')}</span>`;
+  }
+  
+  area.innerHTML = `
+    <div class="puzzle-container">
+      <div class="puzzle-instruction">Descubra o resultado da última equação</div>
+      <div style="display:flex;flex-direction:column;gap:12px;align-items:center;padding:16px;background:var(--glass);border:1px solid var(--border);border-radius:12px">
+        <div style="font-size:clamp(1rem,2.5vw,1.3rem);color:var(--text);display:flex;align-items:center;gap:8px">
+          ${shapeIcon(0)} <span>+</span> ${shapeIcon(1)} <span>=</span> <strong>${eq1}</strong>
+        </div>
+        <div style="font-size:clamp(1rem,2.5vw,1.3rem);color:var(--text);display:flex;align-items:center;gap:8px">
+          ${shapeIcon(0)} <span>+</span> ${shapeIcon(2)} <span>=</span> <strong>${eq2}</strong>
+        </div>
+        <div style="width:80%;height:1px;background:var(--border)"></div>
+        <div style="font-size:clamp(1rem,2.5vw,1.3rem);color:var(--cyan);display:flex;align-items:center;gap:8px">
+          ${shapeIcon(1)} <span>+</span> ${shapeIcon(2)} <span>=</span> <strong style="color:var(--gold)">?</strong>
+        </div>
+      </div>
+      <div class="options-row">
+        ${opts.map((v, i) => `
+          <div class="option-card option-number" data-idx="${i}" onclick="checkOption(this, ${i}, ${correctIdx})">${v}</div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ── ROOM 8: Path Following ──
+function genRoom8() {
+  const area = el('gameArea');
+  // 4x4 grid, follow rule: only step on multiples of a number
+  const multiplier = pick([2, 3]);
+  const ruleText = multiplier === 2 ? 'números pares' : 'múltiplos de 3';
+  
+  // Generate grid with a valid path
+  const grid = Array.from({length: 4}, () => Array.from({length: 4}, () => 0));
+  
+  // Create a path from top-left to bottom-right
+  const path = [{r:0,c:0}];
+  let r = 0, c = 0;
+  while (r < 3 || c < 3) {
+    if (r === 3) { c++; }
+    else if (c === 3) { r++; }
+    else { Math.random() > 0.5 ? r++ : c++; }
+    path.push({r, c});
+  }
+  
+  // Fill path cells with valid numbers
+  path.forEach(p => {
+    let num;
+    do { num = Math.floor(Math.random() * 15) + 1; } while (num % multiplier !== 0);
+    grid[p.r][p.c] = num;
+  });
+  
+  // Fill non-path cells with invalid numbers
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      if (grid[r][c] === 0) {
+        let num;
+        do { num = Math.floor(Math.random() * 20) + 1; } while (num % multiplier === 0);
+        grid[r][c] = num;
+      }
+    }
+  }
+  
+  // Find which cell in the path is in the middle
+  const targetIdx = Math.floor(path.length / 2);
+  const targetCell = path[targetIdx];
+  
+  // Ask: "which cell on row X, col Y belongs to the path?"
+  // Simpler approach: highlight start and end, ask to click all path cells
+  // Even simpler: "Which number should you step on next?"
+  
+  // Show the grid, user must click cells of the path in order
+  window._pathState = {
+    path: path,
+    currentStep: 0,
+    multiplier: multiplier
+  };
+  
+  function renderPathGrid() {
+    return `<div class="puzzle-grid" style="grid-template-columns:repeat(4,1fr)">
+      ${grid.flatMap((row, r) => row.map((num, c) => {
+        const isStart = r === 0 && c === 0;
+        const isEnd = r === 3 && c === 3;
+        let style = '';
+        let extra = '';
+        if (isStart) { style = 'border:2px solid var(--green);background:rgba(52,211,153,.15)'; extra = '🚩'; }
+        else if (isEnd) { style = 'border:2px solid var(--gold);background:rgba(251,191,36,.15)'; extra = '🏁'; }
+        return `<div class="grid-cell filled" style="cursor:pointer;${style}" data-r="${r}" data-c="${c}" onclick="clickPathCell(this,${r},${c})">
+          <div style="font-size:.65rem;position:absolute;top:2px">${extra}</div>
+          ${num}
+        </div>`;
+      })).join('')}
+    </div>`;
+  }
+  
+  area.innerHTML = `
+    <div class="puzzle-container">
+      <div class="puzzle-instruction">Trace o caminho de 🚩 até 🏁 pisando apenas em <strong>${ruleText}</strong>!<br><small style="color:var(--text2)">Clique nas células na ordem correta</small></div>
+      ${renderPathGrid()}
+    </div>`;
+  
+  // Auto-select start
+  window._pathState.currentStep = 1;
+  const startCell = area.querySelector('[data-r="0"][data-c="0"]');
+  if (startCell) { startCell.classList.add('selected-order'); startCell.style.pointerEvents = 'none'; }
+}
+
+window.clickPathCell = function(elem, r, c) {
+  if (G.answered || !G.puzzleActive) return;
+  SFX.play('click');
+  const state = window._pathState;
+  const expected = state.path[state.currentStep];
+  
+  if (r === expected.r && c === expected.c) {
+    elem.classList.add('selected-order');
+    elem.style.background = 'rgba(52,211,153,.15)';
+    elem.style.borderColor = 'var(--green)';
+    elem.style.pointerEvents = 'none';
+    state.currentStep++;
+    if (state.currentStep >= state.path.length) {
+      onCorrectAnswer();
+    }
+  } else {
+    elem.style.background = 'rgba(239,68,68,.15)';
+    elem.style.borderColor = 'var(--red)';
+    onWrongAnswer();
+  }
+};
+
+// ── ROOM 9: Memory Flash ──
+function genRoom9() {
+  const area = el('gameArea');
+  const size = 4;
+  const palette = pickN(COLORS, 4);
+  const grid = Array.from({length: size}, () => 
+    Array.from({length: size}, () => pick(palette))
+  );
+  
+  // Pick a target color and count occurrences
+  const targetColor = pick(palette);
+  let count = 0;
+  grid.forEach(row => row.forEach(c => { if (c === targetColor) count++; }));
+  
+  // Options
+  let opts = [count];
+  while (opts.length < 4) {
+    const wrong = count + pick([-2, -1, 1, 2]);
+    if (!opts.includes(wrong) && wrong >= 0 && wrong <= 16) opts.push(wrong);
+  }
+  opts = shuffle(opts);
+  const correctIdx = opts.indexOf(count);
+  
+  // Show grid for 3 seconds, then hide and ask
+  area.innerHTML = `
+    <div class="puzzle-container">
+      <div class="puzzle-instruction">Memorize a grade!</div>
+      <div class="memory-grid" id="memGrid" style="grid-template-columns:repeat(${size},1fr)">
+        ${grid.flat().map(c => `<div class="memory-cell revealed" style="background:${c}"></div>`).join('')}
+      </div>
+      <div id="memQuestion" style="display:none"></div>
+    </div>`;
+  
+  setTimeout(() => {
+    if (G.answered || !G.puzzleActive) return;
+    const memGrid = el('memGrid');
+    if (memGrid) {
+      memGrid.querySelectorAll('.memory-cell').forEach(cell => {
+        cell.classList.remove('revealed');
+        cell.classList.add('hidden');
+        cell.style.background = '';
+      });
+    }
+    const q = el('memQuestion');
+    if (q) {
+      q.style.display = '';
+      q.innerHTML = `
+        <div class="puzzle-instruction" style="margin-top:16px">
+          Quantas células eram <span style="display:inline-block;width:20px;height:20px;border-radius:4px;background:${targetColor};vertical-align:middle"></span> 
+          <strong style="color:${targetColor}">${COLOR_NAMES[targetColor] || ''}</strong>?
+        </div>
+        <div class="options-row" style="margin-top:12px">
+          ${opts.map((v, i) => `
+            <div class="option-card option-number" data-idx="${i}" onclick="checkOption(this, ${i}, ${correctIdx})">${v}</div>
+          `).join('')}
+        </div>`;
+    }
+  }, 3000);
+}
+
+// ── ROOM 10: Triple Challenge ──
+function genRoom10() {
+  window._tripleState = { current: 0, total: 3 };
+  G.tripleSub = 0;
+  genTripleSub();
+}
+
+function genTripleSub() {
+  const subRoom = G.tripleSub;
+  if (subRoom >= 3) {
+    onCorrectAnswer();
+    return;
+  }
+  
+  // Mini versions of previous puzzles
+  const area = el('gameArea');
+  const subLabel = `<div class="boss-phase" style="color:var(--cyan)">DESAFIO ${subRoom + 1} / 3</div>`;
+  
+  if (subRoom === 0) {
+    // Quick pattern
+    const shapes2 = pickN(SHAPES, 2);
+    const colors2 = pickN(COLORS, 2);
+    const pat = [{shape:shapes2[0],color:colors2[0]},{shape:shapes2[1],color:colors2[1]}];
+    const seq = [pat[0],pat[1],pat[0],pat[1]];
+    const correct = pat[0];
+    let options = [{...correct}];
+    while (options.length < 3) {
+      const w = {shape:pick(SHAPES),color:pick(COLORS)};
+      if (!options.some(o=>o.shape===w.shape&&o.color===w.color)) options.push(w);
+    }
+    options = shuffle(options);
+    const ci = options.findIndex(o=>o.shape===correct.shape&&o.color===correct.color);
+    area.innerHTML = `<div class="puzzle-container">${subLabel}
+      <div class="puzzle-instruction">Rápido! Qual é o próximo?</div>
+      <div class="shape-row">${seq.map(s=>renderShapeCell(s.shape,s.color)).join('')}<div class="shape-cell question-mark">?</div></div>
+      <div class="options-row">${options.map((o,i)=>`<div class="option-card" onclick="checkTriple(this,${i},${ci})"><div class="shape-cell">${renderShape(o.shape,o.color)}</div></div>`).join('')}</div></div>`;
+  } else if (subRoom === 1) {
+    // Quick odd one out
+    const mainShape = pick(SHAPES);
+    let oddShape; do{oddShape=pick(SHAPES);}while(oddShape===mainShape);
+    const mainColor = pick(COLORS);
+    const intIdx = Math.floor(Math.random()*4);
+    const items = Array.from({length:4},(_,i)=>({shape:i===intIdx?oddShape:mainShape,color:mainColor}));
+    area.innerHTML = `<div class="puzzle-container">${subLabel}
+      <div class="puzzle-instruction">Encontre o diferente!</div>
+      <div class="options-row">${items.map((it,i)=>`<div class="option-card" onclick="checkTriple(this,${i},${intIdx})"><div class="shape-cell">${renderShape(it.shape,it.color)}</div></div>`).join('')}</div></div>`;
+  } else {
+    // Quick number sequence
+    const start = Math.floor(Math.random()*3)+1;
+    const step = pick([2,3,5]);
+    const seq = [start,start+step,start+step*2];
+    const answer = start+step*3;
+    let opts=[answer];
+    while(opts.length<3){const w=answer+pick([-2,-1,1,2]);if(!opts.includes(w)&&w>0)opts.push(w);}
+    opts=shuffle(opts);
+    const ci=opts.indexOf(answer);
+    area.innerHTML = `<div class="puzzle-container">${subLabel}
+      <div class="puzzle-instruction">${seq.join(' → ')} → <strong>?</strong></div>
+      <div class="options-row">${opts.map((v,i)=>`<div class="option-card option-number" onclick="checkTriple(this,${i},${ci})">${v}</div>`).join('')}</div></div>`;
+  }
+}
+
+window.checkTriple = function(elem, idx, correct) {
+  if (G.answered || !G.puzzleActive) return;
+  SFX.play('click');
+  if (idx === correct) {
+    elem.classList.add('correct');
+    SFX.play('correct');
+    showFeedback('✓', 'correct');
+    G.tripleSub++;
+    const cfg = ROOM_CONFIG[G.currentRoom - 1];
+    const multiplier = Math.max(1, G.combo);
+    G.score += Math.floor(cfg.points / 3 * multiplier);
+    G.combo++;
+    if (G.combo > G.maxCombo) G.maxCombo = G.combo;
+    updateHUD();
+    if (G.tripleSub >= 3) {
+      G.answered = true;
+      G.puzzleActive = false;
+      clearTimer();
+      G.correctRooms++;
+      burstParticles(window.innerWidth/2, window.innerHeight/2, '#34d399', 30);
+      setTimeout(() => nextRoom(), 1000);
+    } else {
+      setTimeout(() => genTripleSub(), 600);
+    }
+  } else {
+    elem.classList.add('wrong');
+    onWrongAnswer();
+  }
+};
+
+// ── BOSS PUZZLE ──
+function renderBossPhase() {
+  const area = el('gameArea');
+  const phase = G.bossPhase;
+  const phaseLabel = `<div class="boss-phase">⚔️ FASE ${phase + 1} / ${G.bossTotalPhases}</div>`;
+  
+  if (phase === 0) {
+    // Hard pattern: 3-element repeat
+    const shapes3 = pickN(SHAPES, 3);
+    const colors3 = pickN(COLORS, 3);
+    const pat = shapes3.map((s,i) => ({shape:s,color:colors3[i]}));
+    const seq = [];
+    for (let i=0;i<7;i++) seq.push(pat[i%3]);
+    const correct = pat[7%3]; // pat[1]
+    let options = [{...correct}];
+    while(options.length<4){
+      const w={shape:pick(SHAPES),color:pick(COLORS)};
+      if(!options.some(o=>o.shape===w.shape&&o.color===w.color))options.push(w);
+    }
+    options=shuffle(options);
+    const ci=options.findIndex(o=>o.shape===correct.shape&&o.color===correct.color);
+    area.innerHTML=`<div class="puzzle-container">${phaseLabel}
+      <div class="puzzle-instruction">Padrão complexo: qual é o próximo?</div>
+      <div class="shape-row">${seq.map(s=>renderShapeCell(s.shape,s.color)).join('')}<div class="shape-cell question-mark">?</div></div>
+      <div class="options-row">${options.map((o,i)=>`<div class="option-card" onclick="checkBoss(this,${i},${ci})"><div class="shape-cell">${renderShape(o.shape,o.color)}</div></div>`).join('')}</div></div>`;
+  } else if (phase === 1) {
+    // Hard equation
+    const sh = pickN(SHAPES, 3);
+    const co = pickN(COLORS, 3);
+    const v = [Math.floor(Math.random()*7)+2, Math.floor(Math.random()*7)+2, Math.floor(Math.random()*7)+2];
+    const eq1 = v[0]+v[1];
+    const eq2 = v[1]+v[2];
+    const eq3 = v[0]+v[2];
+    const answer = v[0]+v[1]+v[2];
+    let opts=[answer];
+    while(opts.length<4){const w=answer+pick([-3,-2,-1,1,2,3]);if(!opts.includes(w)&&w>0)opts.push(w);}
+    opts=shuffle(opts);
+    const ci=opts.indexOf(answer);
+    function si(idx){return `<span style="display:inline-block;width:24px;height:24px;vertical-align:middle">${renderShape(sh[idx],co[idx],'100%')}</span>`;}
+    area.innerHTML=`<div class="puzzle-container">${phaseLabel}
+      <div class="puzzle-instruction">Equação tripla: resolva!</div>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;background:var(--glass);border:1px solid var(--border);border-radius:12px">
+        <div style="font-size:1.1rem;display:flex;align-items:center;gap:6px">${si(0)} + ${si(1)} = <strong>${eq1}</strong></div>
+        <div style="font-size:1.1rem;display:flex;align-items:center;gap:6px">${si(1)} + ${si(2)} = <strong>${eq2}</strong></div>
+        <div style="width:70%;height:1px;background:var(--border)"></div>
+        <div style="font-size:1.1rem;display:flex;align-items:center;gap:6px;color:var(--cyan)">${si(0)} + ${si(1)} + ${si(2)} = <strong style="color:var(--gold)">?</strong></div>
+      </div>
+      <div class="options-row">${opts.map((v,i)=>`<div class="option-card option-number" onclick="checkBoss(this,${i},${ci})">${v}</div>`).join('')}</div></div>`;
+  } else if (phase === 2) {
+    // Hard symmetry
+    const palette = pickN(COLORS, 3);
+    const grid = Array.from({length:4},()=>Array.from({length:4},()=>pick(palette)));
+    const mirror = grid.map(row=>[...row].reverse());
+    function makeW(){
+      const m=grid.map(row=>[...row].reverse());
+      for(let i=0;i<2;i++){m[Math.floor(Math.random()*4)][Math.floor(Math.random()*4)]=pick(palette);}
+      return m;
+    }
+    let options=[mirror];
+    while(options.length<4){const w=makeW();if(!options.some(o=>JSON.stringify(o)===JSON.stringify(w)))options.push(w);}
+    options=shuffle(options);
+    const ci=options.findIndex(o=>JSON.stringify(o)===JSON.stringify(mirror));
+    function mg(g,s){return `<div class="puzzle-grid" style="grid-template-columns:repeat(4,1fr)">${g.flat().map(c=>`<div class="grid-cell filled" style="background:${c};width:${s};height:${s}"></div>`).join('')}</div>`;}
+    area.innerHTML=`<div class="puzzle-container">${phaseLabel}
+      <div class="puzzle-instruction">Espelho avançado (4×4)!</div>
+      <div style="text-align:center"><div style="font-size:.7rem;color:var(--text2);margin-bottom:4px">ORIGINAL</div>${mg(grid,'clamp(28px,6vw,40px)')}</div>
+      <div class="options-row">${options.map((o,i)=>`<div class="option-card" style="padding:6px" onclick="checkBoss(this,${i},${ci})">${mg(o,'clamp(18px,4vw,24px)')}</div>`).join('')}</div></div>`;
+  } else {
+    // Final: complex grid
+    const sh3=pickN(SHAPES,3);
+    const co3=pickN(COLORS,3);
+    const sG=[[sh3[0],sh3[1],sh3[2]],[sh3[2],sh3[0],sh3[1]],[sh3[1],sh3[2],sh3[0]]];
+    const cG=[[co3[0],co3[1],co3[2]],[co3[1],co3[2],co3[0]],[co3[2],co3[0],co3[1]]];
+    const eR=Math.floor(Math.random()*3),eC=Math.floor(Math.random()*3);
+    const cs=sG[eR][eC],cc=cG[eR][eC];
+    let options=[{shape:cs,color:cc}];
+    while(options.length<4){const w={shape:pick(sh3),color:pick(co3)};if(!options.some(o=>o.shape===w.shape&&o.color===w.color))options.push(w);}
+    options=shuffle(options);
+    const ci=options.findIndex(o=>o.shape===cs&&o.color===cc);
+    area.innerHTML=`<div class="puzzle-container">${phaseLabel}
+      <div class="puzzle-instruction">Complete a grade do Guardião!</div>
+      <div class="puzzle-grid" style="grid-template-columns:repeat(3,1fr)">${sG.flatMap((row,r)=>row.map((s,c)=>{
+        if(r===eR&&c===eC)return`<div class="grid-cell empty">?</div>`;
+        return`<div class="grid-cell filled">${renderShape(s,cG[r][c],'65%')}</div>`;
+      })).join('')}</div>
+      <div class="options-row">${options.map((o,i)=>`<div class="option-card" onclick="checkBoss(this,${i},${ci})"><div class="shape-cell">${renderShape(o.shape,o.color)}</div></div>`).join('')}</div></div>`;
+  }
+}
+
+window.checkBoss = function(elem, idx, correct) {
+  if (G.answered || !G.puzzleActive) return;
+  SFX.play('click');
+  if (idx === correct) {
+    elem.classList.add('correct');
+    onCorrectAnswer();
+  } else {
+    elem.classList.add('wrong');
+    onWrongAnswer();
+  }
+};
+
+// ── GENERIC OPTION CHECKER ──
+window.checkOption = function(elem, idx, correct) {
+  if (G.answered || !G.puzzleActive) return;
+  SFX.play('click');
+  
+  // Highlight all options
+  const parent = elem.parentElement;
+  if (idx === correct) {
+    elem.classList.add('correct');
+    onCorrectAnswer();
+  } else {
+    elem.classList.add('wrong');
+    // Show correct
+    const cards = parent.querySelectorAll('.option-card');
+    cards.forEach((c, i) => { if (parseInt(c.dataset.idx) === correct) c.classList.add('correct'); });
+    onWrongAnswer();
+  }
+};
+
+window.checkDoor = function(elem, idx, correct) {
+  if (G.answered || !G.puzzleActive) return;
+  SFX.play('click');
+  if (idx === correct) {
+    elem.classList.add('correct');
+    onCorrectAnswer();
+  } else {
+    elem.classList.add('wrong');
+    const doors = elem.parentElement.querySelectorAll('.door');
+    doors[correct].classList.add('correct');
+    onWrongAnswer();
+  }
+};
+
+// ─────────────────────────────────────────────
+// KEYBOARD
+// ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && G.screen === 'gameScreen') togglePause();
+});
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+el('menuRecord').textContent = parseInt(localStorage.getItem('labyrinth_hs') || '0');
+
+// Touch init for audio context
+document.addEventListener('click', () => SFX.init(), {once: true});
+</script>
+</body>
+</html>
