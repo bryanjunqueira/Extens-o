@@ -16,7 +16,7 @@
 --text:#e2e8f0;--text2:#94a3b8;--font-title:'Orbitron',sans-serif;
 --font-body:'Inter',sans-serif;
 }
-html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body)}
+html,body{width:100%;height:100%;overflow:hidden;background-color:var(--bg-color, #07070f);background-image:radial-gradient(circle at 50% 50%, var(--ambient-glow, rgba(255,255,255,0.01)) 0%, transparent 100%);color:var(--text);font-family:var(--font-body);transition:background-color 1.5s ease}
 canvas#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
 .screen{position:fixed;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:10;padding:20px;transition:opacity .4s}
 .screen.active{display:flex}
@@ -143,7 +143,7 @@ background:linear-gradient(90deg,transparent,var(--cyan),transparent);border-rad
 .door.wrong{border-color:var(--red);box-shadow:0 0 30px rgba(239,68,68,.3);animation:shake .4s ease}
 /* GRID PUZZLE */
 .puzzle-grid{display:inline-grid;gap:6px;padding:12px;background:var(--glass);border:1px solid var(--border);border-radius:12px}
-.grid-cell{width:clamp(45px,10vw,65px);height:clamp(45px,10vw,65px);display:flex;align-items:center;justify-content:center;
+.grid-cell{position:relative;width:clamp(45px,10vw,65px);height:clamp(45px,10vw,65px);display:flex;align-items:center;justify-content:center;
 border-radius:8px;font-family:var(--font-title);font-size:clamp(.9rem,2.5vw,1.3rem);transition:all .3s}
 .grid-cell.filled{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--border)}
 .grid-cell.empty{background:rgba(0,229,255,.08);border:2px dashed var(--cyan);color:var(--cyan);cursor:default;
@@ -219,6 +219,81 @@ animation:feedbackPop .7s ease forwards}
 20%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}
 40%{transform:translate(-50%,-50%) scale(1)}
 100%{opacity:0;transform:translate(-50%,-70%) scale(.8)}}
+
+/* SCREEN SHAKE */
+.shake-screen { animation: screenShake 0.4s ease; }
+@keyframes screenShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform: translateX(10px); }
+}
+
+/* FLOATING SCORE */
+.floating-score {
+  position: fixed;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-title);
+  font-size: 2rem;
+  color: var(--gold);
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 22;
+  animation: floatUp 0.8s ease forwards;
+  text-shadow: 0 0 15px rgba(251,191,36,0.6);
+}
+@keyframes floatUp {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  20% { opacity: 1; transform: translate(-50%, -60%) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -100%) scale(0.8); }
+}
+
+/* ROOM PROGRESS BAR */
+.hud-room-progress {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  width: 100%;
+  max-width: 280px;
+  justify-content: center;
+}
+.progress-dot {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+.progress-dot.completed {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+.progress-dot.current {
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  animation: pulseDot 1s infinite alternate;
+}
+.progress-dot.boss {
+  background: var(--orange);
+  box-shadow: 0 0 10px var(--orange);
+}
+@keyframes pulseDot {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* GLOW AND GLOW EFFS */
+.btn:hover {
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+}
+.btn-primary:hover {
+  box-shadow: 0 6px 32px rgba(0,229,255,0.6);
+}
+.option-card:hover {
+  box-shadow: 0 0 15px rgba(0,229,255,0.25);
+}
+
 /* RESPONSIVE */
 @media(max-width:600px){
 .hud{padding:8px 12px;gap:6px}
@@ -272,9 +347,11 @@ Atravesse <strong>10 salas</strong> resolvendo puzzles visuais de lógica e padr
 <div class="hud-center">
 <div class="hud-room" id="hudRoom">SALA 1 / 10</div>
 <div class="hud-timer-bar"><div class="hud-timer-fill" id="hudTimer"></div></div>
+<div class="hud-room-progress" id="hudProgress"></div>
 </div>
 <div class="hud-right">
 <div class="hud-combo" id="hudCombo" style="display:none">🔥 x1</div>
+<button class="hud-btn" id="btnMute" onclick="toggleMute()" title="Mudar Som">🔊</button>
 <button class="hud-btn" id="btnPause" onclick="togglePause()" title="Pausar">⏸</button>
 <button class="hud-btn" id="btnRestart" onclick="confirmRestart()" title="Reiniciar">🔄</button>
 </div>
@@ -350,12 +427,13 @@ const BOSS_CONFIG = {name:'O Guardião',desc:'Uma tentativa. Todas as mecânicas
 // ─────────────────────────────────────────────
 const SFX = {
   ctx: null,
+  muted: false,
   init() {
     if (this.ctx) return;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
   },
   play(type) {
-    if (!this.ctx) return;
+    if (this.muted || !this.ctx) return;
     try {
       const now = this.ctx.currentTime;
       switch(type) {
@@ -374,6 +452,7 @@ const SFX = {
     } catch(e) {}
   },
   _tone(freq, dur, vol, type) {
+    if (this.muted || !this.ctx) return;
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
     o.type = type; o.frequency.value = freq;
@@ -403,6 +482,13 @@ const SFX = {
     });
   }
 };
+
+function toggleMute() {
+  SFX.muted = !SFX.muted;
+  const btn = el('btnMute');
+  if (btn) btn.textContent = SFX.muted ? '🔇' : '🔊';
+  SFX.play('click');
+}
 
 // ─────────────────────────────────────────────
 // PARTICLE SYSTEM
@@ -454,6 +540,28 @@ function animateParticles() {
     bgCtx.globalAlpha = p.alpha * p.life;
     bgCtx.fill();
   });
+
+  // Desenhar linhas conectoras (efeito constelação)
+  const floaters = particles.filter(p => !p.decay);
+  bgCtx.lineWidth = 0.5;
+  for (let i = 0; i < floaters.length; i++) {
+    for (let j = i + 1; j < floaters.length; j++) {
+      const p1 = floaters[i];
+      const p2 = floaters[j];
+      const dx = p1.x - p2.x;
+      const dy = p1.y - p2.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 100) {
+        const alpha = (1 - dist / 100) * 0.12 * Math.min(p1.alpha, p2.alpha);
+        bgCtx.beginPath();
+        bgCtx.moveTo(p1.x, p1.y);
+        bgCtx.lineTo(p2.x, p2.y);
+        bgCtx.strokeStyle = p1.color;
+        bgCtx.globalAlpha = alpha;
+        bgCtx.stroke();
+      }
+    }
+  }
   bgCtx.globalAlpha = 1;
   requestAnimationFrame(animateParticles);
 }
@@ -472,6 +580,7 @@ function resetState() {
     startTime: null, correctRooms: 0, wrongAnswers: 0,
     puzzleActive: false, answered: false, timerInterval: null,
     tripleSub: 0,
+    activeTimeouts: [],
     highScore: parseInt(localStorage.getItem('labyrinth_hs') || '0')
   };
 }
@@ -480,6 +589,56 @@ resetState();
 // ─────────────────────────────────────────────
 // UTILITY
 // ─────────────────────────────────────────────
+const ROOM_BG_COLORS = [
+  '#040c14', // Sala 1
+  '#0c0414', // Sala 2
+  '#120e04', // Sala 3
+  '#04120c', // Sala 4
+  '#14040c', // Sala 5
+  '#040a14', // Sala 6
+  '#120412', // Sala 7
+  '#140804', // Sala 8
+  '#041414', // Sala 9
+  '#100414', // Sala 10
+  '#1c0404'  // Chefe
+];
+
+function safeTimeout(fn, delay) {
+  let timerId;
+  const check = () => {
+    if (G.isPaused) {
+      timerId = setTimeout(check, 100);
+    } else {
+      if (G.activeTimeouts) {
+        G.activeTimeouts = G.activeTimeouts.filter(t => t.timerId !== timerId);
+      }
+      fn();
+    }
+  };
+  timerId = setTimeout(check, delay);
+  const handle = {
+    timerId: timerId,
+    clear() { clearTimeout(timerId); }
+  };
+  if (G.activeTimeouts) G.activeTimeouts.push(handle);
+  return handle;
+}
+
+function clearAllTimeouts() {
+  if (G.activeTimeouts) {
+    G.activeTimeouts.forEach(t => t.clear());
+    G.activeTimeouts = [];
+  }
+}
+
+function spawnFloatingScore(points, multiplier) {
+  const div = document.createElement('div');
+  div.className = 'floating-score';
+  div.textContent = `+${points}${multiplier > 1 ? ' x' + multiplier : ''}`;
+  document.body.appendChild(div);
+  safeTimeout(() => div.remove(), 800);
+}
+
 function shuffle(arr) { const a = [...arr]; for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 function pick(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
 function pickN(arr, n) { return shuffle(arr).slice(0, n); }
@@ -530,6 +689,25 @@ function updateHUD() {
     el('hudRoom').textContent = `SALA ${G.currentRoom} / ${TOTAL_ROOMS}`;
     el('hudRoom').style.color = '';
   }
+  // Progress Bar Dots
+  const progressEl = el('hudProgress');
+  if (progressEl) {
+    let dotsHtml = '';
+    for (let r = 1; r <= TOTAL_ROOMS; r++) {
+      let className = 'progress-dot';
+      if (G.isBoss) {
+        className += ' completed';
+      } else {
+        if (r < G.currentRoom) className += ' completed';
+        else if (r === G.currentRoom) className += ' current';
+      }
+      dotsHtml += `<div class="${className}"></div>`;
+    }
+    let bossClassName = 'progress-dot';
+    if (G.isBoss) bossClassName += ' boss current';
+    dotsHtml += `<div class="${bossClassName}"></div>`;
+    progressEl.innerHTML = dotsHtml;
+  }
   // Combo
   const comboEl = el('hudCombo');
   if (G.combo >= 2) {
@@ -574,6 +752,7 @@ function startTimer(seconds) {
 
 function clearTimer() {
   if (G.timerInterval) { clearInterval(G.timerInterval); G.timerInterval = null; }
+  clearAllTimeouts();
 }
 
 function onTimeUp() {
@@ -583,12 +762,12 @@ function onTimeUp() {
   if (G.isBoss) {
     showFeedback('⏰ Tempo Esgotado!', 'wrong');
     SFX.play('wrong');
-    setTimeout(() => defeat(), 1200);
+    safeTimeout(() => defeat(), 1200);
   } else {
     loseLife();
     showFeedback('⏰ Tempo!', 'wrong');
     SFX.play('wrong');
-    setTimeout(() => nextRoom(), 1500);
+    safeTimeout(() => nextRoom(), 1500);
   }
 }
 
@@ -626,6 +805,14 @@ function addScore(base) {
     SFX.play('combo');
     showFeedback(`🔥 COMBO x${G.combo}!`, 'combo');
   }
+  spawnFloatingScore(total, multiplier);
+}
+
+function triggerScreenShake() {
+  document.body.classList.add('shake-screen');
+  setTimeout(() => {
+    document.body.classList.remove('shake-screen');
+  }, 400); // Múltiplos navegadores e sem estado congelante, safe usar nativo curto
 }
 
 function loseLife() {
@@ -637,7 +824,7 @@ function loseLife() {
   const hearts = el('hudLives').querySelectorAll('.hud-heart');
   if (hearts[G.lives]) hearts[G.lives].classList.add('losing');
   if (G.lives <= 0) {
-    setTimeout(() => defeat(), 800);
+    safeTimeout(() => defeat(), 800);
   }
 }
 
@@ -680,6 +867,10 @@ function startGame() {
 function showRoomIntro() {
   const area = el('gameArea');
   const cfg = G.isBoss ? BOSS_CONFIG : ROOM_CONFIG[G.currentRoom - 1];
+  
+  // Transição suave de fundo baseada na sala/chefe
+  document.body.style.backgroundColor = ROOM_BG_COLORS[G.isBoss ? 10 : G.currentRoom - 1];
+  
   if (G.isBoss) {
     SFX.play('boss');
     area.innerHTML = `
@@ -731,11 +922,11 @@ function onCorrectAnswer() {
     G.bossPhase++;
     if (G.bossPhase >= G.bossTotalPhases) {
       SFX.play('roomComplete');
-      setTimeout(() => victory(), 1200);
+      safeTimeout(() => victory(), 1200);
     } else {
       SFX.play('bossPhase');
       updateHUD();
-      setTimeout(() => {
+      safeTimeout(() => {
         G.answered = false;
         G.puzzleActive = true;
         startTimer(Math.max(12, BOSS_CONFIG.time - G.bossPhase * 12));
@@ -743,7 +934,7 @@ function onCorrectAnswer() {
       }, 1000);
     }
   } else {
-    setTimeout(() => nextRoom(), 1200);
+    safeTimeout(() => nextRoom(), 1200);
   }
 }
 
@@ -755,13 +946,14 @@ function onWrongAnswer() {
   SFX.play('wrong');
   showFeedback('✗ Errado!', 'wrong');
   burstParticles(window.innerWidth/2, window.innerHeight/2, '#ef4444', 15);
+  triggerScreenShake();
   
   if (G.isBoss) {
-    setTimeout(() => defeat(), 1200);
+    safeTimeout(() => defeat(), 1200);
   } else {
     loseLife();
     if (G.lives > 0) {
-      setTimeout(() => nextRoom(), 1500);
+      safeTimeout(() => nextRoom(), 1500);
     }
   }
 }
@@ -790,7 +982,7 @@ function showRoomTransition(title, sub, callback) {
   bg.style.animation = 'none';
   void bg.offsetWidth;
   bg.style.animation = '';
-  setTimeout(() => {
+  safeTimeout(() => {
     t.classList.remove('active');
     callback();
   }, 1500);
@@ -1146,14 +1338,15 @@ function genRoom7() {
   const colors2 = pickN(COLORS, 3);
   
   // Assign values
-  const valA = Math.floor(Math.random() * 5) + 1; // 1-5
-  const valB = Math.floor(Math.random() * 5) + 1;
-  const valC = Math.floor(Math.random() * 5) + 1;
+  const valA = Math.floor(Math.random() * 5) + 2; // 2-6
+  const valB = Math.floor(Math.random() * 5) + 2; // 2-6
+  const valC = Math.floor(Math.random() * 5) + 2; // 2-6
   
-  // Equations: A + B = ?, A + C = ?, B + C = ?
-  const eq1 = valA + valB;
-  const eq2 = valA + valC;
-  const answer = valB + valC;
+  // Equations: A + A = eq1, A + B = eq2, B + C = eq3
+  const eq1 = valA + valA;
+  const eq2 = valA + valB;
+  const eq3 = valB + valC;
+  const answer = valC;
   
   // Options
   let opts = [answer];
@@ -1170,17 +1363,20 @@ function genRoom7() {
   
   area.innerHTML = `
     <div class="puzzle-container">
-      <div class="puzzle-instruction">Descubra o resultado da última equação</div>
+      <div class="puzzle-instruction">Deduza o valor individual da forma: ${shapeIcon(2)} = <strong>?</strong></div>
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;padding:16px;background:var(--glass);border:1px solid var(--border);border-radius:12px">
         <div style="font-size:clamp(1rem,2.5vw,1.3rem);color:var(--text);display:flex;align-items:center;gap:8px">
-          ${shapeIcon(0)} <span>+</span> ${shapeIcon(1)} <span>=</span> <strong>${eq1}</strong>
+          ${shapeIcon(0)} <span>+</span> ${shapeIcon(0)} <span>=</span> <strong>${eq1}</strong>
         </div>
         <div style="font-size:clamp(1rem,2.5vw,1.3rem);color:var(--text);display:flex;align-items:center;gap:8px">
-          ${shapeIcon(0)} <span>+</span> ${shapeIcon(2)} <span>=</span> <strong>${eq2}</strong>
+          ${shapeIcon(0)} <span>+</span> ${shapeIcon(1)} <span>=</span> <strong>${eq2}</strong>
+        </div>
+        <div style="font-size:clamp(1rem,2.5vw,1.3rem);color:var(--text);display:flex;align-items:center;gap:8px">
+          ${shapeIcon(1)} <span>+</span> ${shapeIcon(2)} <span>=</span> <strong>${eq3}</strong>
         </div>
         <div style="width:80%;height:1px;background:var(--border)"></div>
         <div style="font-size:clamp(1rem,2.5vw,1.3rem);color:var(--cyan);display:flex;align-items:center;gap:8px">
-          ${shapeIcon(1)} <span>+</span> ${shapeIcon(2)} <span>=</span> <strong style="color:var(--gold)">?</strong>
+          ${shapeIcon(2)} <span>=</span> <strong style="color:var(--gold)">?</strong>
         </div>
       </div>
       <div class="options-row">
@@ -1311,9 +1507,16 @@ function genRoom9() {
   
   // Options
   let opts = [count];
-  while (opts.length < 4) {
-    const wrong = count + pick([-2, -1, 1, 2]);
+  let attempts = 0;
+  while (opts.length < 4 && attempts < 100) {
+    const wrong = count + pick([-3, -2, -1, 1, 2, 3, 4]);
     if (!opts.includes(wrong) && wrong >= 0 && wrong <= 16) opts.push(wrong);
+    attempts++;
+  }
+  // Garantia absoluta contra loop infinito
+  while (opts.length < 4) {
+    const fallback = Math.floor(Math.random() * 10);
+    if (!opts.includes(fallback)) opts.push(fallback);
   }
   opts = shuffle(opts);
   const correctIdx = opts.indexOf(count);
@@ -1328,7 +1531,7 @@ function genRoom9() {
       <div id="memQuestion" style="display:none"></div>
     </div>`;
   
-  setTimeout(() => {
+  safeTimeout(() => {
     if (G.answered || !G.puzzleActive) return;
     const memGrid = el('memGrid');
     if (memGrid) {
@@ -1437,13 +1640,30 @@ window.checkTriple = function(elem, idx, correct) {
       clearTimer();
       G.correctRooms++;
       burstParticles(window.innerWidth/2, window.innerHeight/2, '#34d399', 30);
-      setTimeout(() => nextRoom(), 1000);
+      safeTimeout(() => nextRoom(), 1000);
     } else {
-      setTimeout(() => genTripleSub(), 600);
+      safeTimeout(() => genTripleSub(), 600);
     }
   } else {
     elem.classList.add('wrong');
-    onWrongAnswer();
+    G.answered = true;
+    G.puzzleActive = false;
+    clearTimer();
+    SFX.play('wrong');
+    showFeedback('✗ Errado!', 'wrong');
+    burstParticles(window.innerWidth/2, window.innerHeight/2, '#ef4444', 15);
+    triggerScreenShake();
+    loseLife();
+    if (G.lives > 0) {
+      safeTimeout(() => {
+        G.tripleSub = 0;
+        G.answered = false;
+        G.puzzleActive = true;
+        const cfg = ROOM_CONFIG[G.currentRoom - 1];
+        startTimer(cfg.time);
+        genTripleSub();
+      }, 1500);
+    }
   }
 };
 
@@ -1491,6 +1711,7 @@ function renderBossPhase() {
       <div style="display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;background:var(--glass);border:1px solid var(--border);border-radius:12px">
         <div style="font-size:1.1rem;display:flex;align-items:center;gap:6px">${si(0)} + ${si(1)} = <strong>${eq1}</strong></div>
         <div style="font-size:1.1rem;display:flex;align-items:center;gap:6px">${si(1)} + ${si(2)} = <strong>${eq2}</strong></div>
+        <div style="font-size:1.1rem;display:flex;align-items:center;gap:6px">${si(0)} + ${si(2)} = <strong>${eq3}</strong></div>
         <div style="width:70%;height:1px;background:var(--border)"></div>
         <div style="font-size:1.1rem;display:flex;align-items:center;gap:6px;color:var(--cyan)">${si(0)} + ${si(1)} + ${si(2)} = <strong style="color:var(--gold)">?</strong></div>
       </div>
